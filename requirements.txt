@@ -1,2 +1,4 @@
 requests==2.31.0
 apache-airflow-providers-google==10.16.0
+gtfs-realtime-bindings==1.0.0
+polars==0.20.14
