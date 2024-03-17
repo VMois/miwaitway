@@ -10,11 +10,9 @@ from airflow.providers.google.cloud.transfers.local_to_gcs import LocalFilesyste
 from airflow.providers.google.cloud.transfers.gcs_to_bigquery import GCSToBigQueryOperator
 from airflow.providers.google.cloud.operators.bigquery import BigQueryCreateEmptyDatasetOperator
 
+from config import RAW_DATASET_NAME, BUCKET_NAME, GCP_CONN_ID
 
 STATIC_GTFS_TMP_PATH = '/tmp/static_gtfs'
-DATASET_NAME ='miway_data'
-BUCKET_NAME = 'miwaitway'
-GCP_CONN_ID = 'miwaitway_gcp_default'
 MIWAY_URL = 'https://www.miapp.ca/GTFS/google_transit.zip'
 
 def download_static_gtfs_data(url: str, output_path: str, ti):
@@ -60,7 +58,7 @@ def load_feeds(**kwargs):
             task_id=f"gcs_{table_name}_feed_to_bigquery",
             bucket=BUCKET_NAME,
             source_objects=[gcs_path],
-            destination_project_dataset_table=f"{DATASET_NAME}.{table_name}",
+            destination_project_dataset_table=f"{RAW_DATASET_NAME}.{table_name}",
             autodetect=True,
             skip_leading_rows=1,
             write_disposition="WRITE_TRUNCATE",
@@ -100,7 +98,7 @@ with DAG(
 
     create_dataset = BigQueryCreateEmptyDatasetOperator(
         task_id="create_dataset",
-        dataset_id=DATASET_NAME,
+        dataset_id=RAW_DATASET_NAME,
         if_exists="ignore",
         gcp_conn_id=GCP_CONN_ID,
     )
