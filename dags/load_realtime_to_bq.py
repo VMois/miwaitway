@@ -2,24 +2,18 @@ from datetime import datetime, timedelta
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
-from airflow.providers.google.cloud.operators.bigquery import BigQueryCreateEmptyDatasetOperator
+from airflow.providers.google.cloud.operators.bigquery import BigQueryCreateEmptyDatasetOperator, BigQueryInsertJobOperator
 from airflow.providers.google.cloud.transfers.gcs_to_bigquery import GCSToBigQueryOperator
 from airflow.providers.google.cloud.hooks.gcs import GCSHook
 
-from config import BUCKET_NAME, GCP_CONN_ID, DATASET_NAME
+from config import BUCKET_NAME, GCP_CONN_ID, RAW_DATASET_NAME
 
 
-def get_field_value(obj, field_name: str, default=None):
-    try:
-        if obj.HasField(field_name):
-            return getattr(obj, field_name)
-        else:
-            return default
-    except ValueError:
-        return default
+TMP_VEHICLE_TABLE_NAME = "tmp_vehicle_position"
+VEHICLE_TABLE_NAME = "vehicle_position"
 
 
-def load_feeds_to_bq(**kwargs):
+def load_realtime_batch_to_bq(**kwargs):
     gcs_hook = GCSHook(gcp_conn_id=GCP_CONN_ID)
     objects = gcs_hook.list(BUCKET_NAME, prefix='realtime/vehicle')
 
@@ -28,10 +22,10 @@ def load_feeds_to_bq(**kwargs):
             task_id='gcs_realtime_to_bq',
             bucket=BUCKET_NAME,
             source_objects=objects,
-            destination_project_dataset_table=f"{DATASET_NAME}.vehicle_position",
+            destination_project_dataset_table=f"{RAW_DATASET_NAME}.{TMP_VEHICLE_TABLE_NAME}",
             autodetect=True,
             skip_leading_rows=1,
-            write_disposition="WRITE_APPEND",
+            write_disposition="WRITE_TRUNCATE",
             gcp_conn_id=GCP_CONN_ID,
         )
         load_csv.execute(context=kwargs)
@@ -59,16 +53,26 @@ with DAG(
     tags=['miway'],
     max_active_runs=1,
 ) as dag:
-    create_dataset = BigQueryCreateEmptyDatasetOperator(
+    create_raw_dataset = BigQueryCreateEmptyDatasetOperator(
         task_id="create_dataset",
-        dataset_id=DATASET_NAME,
+        dataset_id=RAW_DATASET_NAME,
         if_exists="ignore",
         gcp_conn_id=GCP_CONN_ID,
     )
 
-    load_feeds_into_bigquery = PythonOperator(
-        task_id='load_feeds_into_bigquery',
-        python_callable=load_feeds_to_bq,
+    load_batch_to_tmp_raw = PythonOperator(
+        task_id='load_realtime_batch_to_bq',
+        python_callable=load_realtime_batch_to_bq,
     )
 
-    create_dataset >> load_feeds_into_bigquery
+    append_tmp_to_raw = BigQueryInsertJobOperator(
+        task_id='append_tmp_to_raw',
+        configuration={
+            'query': {
+                # TODO: in case for some reasons columns are not detected properly, we might have an issue
+                'query': f"INSERT {RAW_DATASET_NAME}.{VEHICLE_TABLE_NAME} SELECT * FROM {RAW_DATASET_NAME}.{TMP_VEHICLE_TABLE_NAME}"
+            }
+        }
+    )
+
+    create_raw_dataset >> load_batch_to_tmp_raw >> append_tmp_to_raw
