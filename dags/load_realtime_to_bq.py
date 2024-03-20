@@ -2,11 +2,11 @@ from datetime import datetime, timedelta
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
-from airflow.providers.google.cloud.operators.bigquery import BigQueryCreateEmptyDatasetOperator, BigQueryInsertJobOperator
+from airflow.providers.google.cloud.operators.bigquery import BigQueryCreateEmptyDatasetOperator, BigQueryInsertJobOperator, BigQueryCreateEmptyTableOperator
 from airflow.providers.google.cloud.transfers.gcs_to_bigquery import GCSToBigQueryOperator
 from airflow.providers.google.cloud.hooks.gcs import GCSHook
 
-from config import BUCKET_NAME, GCP_CONN_ID, RAW_DATASET_NAME
+from config import BUCKET_NAME, GCP_CONN_ID, RAW_DATASET_NAME, RAW_VEHICLE_TABLE_SCHEMA
 
 
 TMP_VEHICLE_TABLE_NAME = "tmp_vehicle_position"
@@ -23,7 +23,7 @@ def load_realtime_batch_to_bq(**kwargs):
             bucket=BUCKET_NAME,
             source_objects=objects,
             destination_project_dataset_table=f"{RAW_DATASET_NAME}.{TMP_VEHICLE_TABLE_NAME}",
-            autodetect=True,
+            autodetect=None,
             skip_leading_rows=1,
             write_disposition="WRITE_TRUNCATE",
             gcp_conn_id=GCP_CONN_ID,
@@ -60,19 +60,49 @@ with DAG(
         gcp_conn_id=GCP_CONN_ID,
     )
 
+    # TODO: if data still exists in tmp table fail the job
+    create_raw_tmp_vehicle_table = BigQueryCreateEmptyTableOperator(
+        task_id='create_raw_tmp_vehicle_table',
+        gcp_conn_id=GCP_CONN_ID,
+        dataset_id=RAW_DATASET_NAME,
+        table_id=TMP_VEHICLE_TABLE_NAME,
+        schema_fields=RAW_VEHICLE_TABLE_SCHEMA,
+        if_exists='ignore',
+    )
+
     load_batch_to_tmp_raw = PythonOperator(
         task_id='load_realtime_batch_to_bq',
         python_callable=load_realtime_batch_to_bq,
     )
 
+    create_raw_vehicle_table = BigQueryCreateEmptyTableOperator(
+        task_id='create_raw_vehicle_table',
+        gcp_conn_id=GCP_CONN_ID,
+        dataset_id=RAW_DATASET_NAME,
+        table_id=VEHICLE_TABLE_NAME,
+        schema_fields=RAW_VEHICLE_TABLE_SCHEMA,
+        if_exists='ignore',
+    )
+
     append_tmp_to_raw = BigQueryInsertJobOperator(
         task_id='append_tmp_to_raw',
+        gcp_conn_id=GCP_CONN_ID,
         configuration={
-            'query': {
-                # TODO: in case for some reasons columns are not detected properly, we might have an issue
-                'query': f"INSERT {RAW_DATASET_NAME}.{VEHICLE_TABLE_NAME} SELECT * FROM {RAW_DATASET_NAME}.{TMP_VEHICLE_TABLE_NAME}"
+            'copy': {
+                'sourceTable': {
+                    'projectId': 'miwaitway',
+                    'datasetId': RAW_DATASET_NAME,
+                    'tableId': TMP_VEHICLE_TABLE_NAME,
+                },
+                'destinationTable': {
+                    'projectId': 'miwaitway',
+                    'datasetId': RAW_DATASET_NAME,
+                    'tableId': VEHICLE_TABLE_NAME,
+                },
+                'createDisposition': 'CREATE_NEVER',
+                'writeDisposition': 'WRITE_APPEND',
             }
         }
     )
 
-    create_raw_dataset >> load_batch_to_tmp_raw >> append_tmp_to_raw
+    create_raw_dataset >> create_raw_tmp_vehicle_table >> load_batch_to_tmp_raw >> create_raw_vehicle_table >> append_tmp_to_raw
