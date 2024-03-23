@@ -8,7 +8,7 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.providers.google.cloud.transfers.local_to_gcs import LocalFilesystemToGCSOperator
 from airflow.providers.google.cloud.transfers.gcs_to_bigquery import GCSToBigQueryOperator
-from airflow.providers.google.cloud.operators.bigquery import BigQueryCreateEmptyDatasetOperator
+from airflow.providers.google.cloud.operators.bigquery import BigQueryGetDatasetOperator
 
 from config import RAW_DATASET_NAME, BUCKET_NAME, GCP_CONN_ID
 
@@ -61,7 +61,7 @@ def load_feeds(**kwargs):
             destination_project_dataset_table=f"{RAW_DATASET_NAME}.{table_name}",
             autodetect=True,
             skip_leading_rows=1,
-            write_disposition="WRITE_TRUNCATE",
+            write_disposition='WRITE_TRUNCATE',
             gcp_conn_id=GCP_CONN_ID,
         )
         load_csv.execute(context=kwargs)
@@ -80,10 +80,15 @@ with DAG(
     default_args=default_args,
     description='Download static GTFS data, extract feeds, and upload to GCS and BigQuery',
     schedule_interval=timedelta(days=1),
-    start_date=datetime(2023, 1, 1),
+    start_date=datetime(2024, 1, 1),
     catchup=False,
     tags=['miway'],
 ) as dag:
+    check_if_dataset_exists = BigQueryGetDatasetOperator(
+        task_id='check_if_raw_miway_dataset_exists',
+        gcp_conn_id=GCP_CONN_ID,
+        dataset_id=RAW_DATASET_NAME,
+    )
 
     download_data = PythonOperator(
         task_id='download_static_gtfs_data',
@@ -96,17 +101,9 @@ with DAG(
         python_callable=upload_feeds_to_gcs,
     )
 
-    create_dataset = BigQueryCreateEmptyDatasetOperator(
-        task_id="create_dataset",
-        dataset_id=RAW_DATASET_NAME,
-        if_exists="ignore",
-        gcp_conn_id=GCP_CONN_ID,
-    )
-
     load_feeds_into_bigquery = PythonOperator(
         task_id='load_feeds_into_bigquery',
         python_callable=load_feeds,
     )
 
-    download_data >> upload_feeds_to_gcs >> create_dataset >> load_feeds_into_bigquery
-
+    check_if_dataset_exists >> download_data >> upload_feeds_to_gcs >> load_feeds_into_bigquery
