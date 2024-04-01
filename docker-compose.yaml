@@ -39,9 +39,9 @@ services:
   postgres:
     image: postgres:13
     environment:
-      POSTGRES_USER: salus
-      POSTGRES_PASSWORD: salus123  # for testing only
-      POSTGRES_DB: airflow
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${AIRFLOW_DB_NAME}
     volumes:
       - ./airflow_data:/var/lib/postgresql/data
     healthcheck:
