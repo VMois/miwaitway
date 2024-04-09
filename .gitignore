@@ -1,8 +1,8 @@
+# For macos
+.DS_Store
+
 # Env file
 .env
-
-# Airflow
-logs/
 
 # Local Postgres for Airflow
 airflow_data/
