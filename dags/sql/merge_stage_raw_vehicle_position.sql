@@ -1,7 +1,7 @@
 MERGE `{{ params.project_id }}.{{ params.dataset_id }}.{{ params.vehicle_table_name }}` AS target
 USING `{{ params.project_id }}.{{ params.dataset_id }}.{{ params.stage_vehicle_table_name }}` AS source
 ON target.vehicle_id = source.vehicle_id
-AND target.timestamp = source.timestamp
+AND target.timestamp = TIMESTAMP_SECONDS(source.timestamp)
 AND target.trip_id = source.trip_id
 WHEN MATCHED THEN
     UPDATE SET
