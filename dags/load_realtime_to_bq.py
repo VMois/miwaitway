@@ -2,27 +2,40 @@ from datetime import datetime, timedelta
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
-from airflow.providers.google.cloud.operators.bigquery import BigQueryGetDatasetOperator, BigQueryCheckOperator, BigQueryInsertJobOperator
+from airflow.providers.google.cloud.operators.bigquery import (
+    BigQueryGetDatasetOperator,
+    BigQueryCheckOperator,
+    BigQueryInsertJobOperator,
+)
 from airflow.providers.google.cloud.sensors.bigquery import BigQueryTableExistenceSensor
-from airflow.providers.google.cloud.transfers.gcs_to_bigquery import GCSToBigQueryOperator
+from airflow.providers.google.cloud.transfers.gcs_to_bigquery import (
+    GCSToBigQueryOperator,
+)
 from airflow.providers.google.cloud.hooks.gcs import GCSHook
 
-from config import BUCKET_NAME, GCP_CONN_ID, RAW_DATASET_NAME, PROJECT_ID, STAGE_VEHICLE_TABLE_NAME, VEHICLE_TABLE_NAME
+from config import (
+    BUCKET_NAME,
+    GCP_CONN_ID,
+    RAW_DATASET_NAME,
+    PROJECT_ID,
+    STAGE_VEHICLE_TABLE_NAME,
+    VEHICLE_TABLE_NAME,
+)
 
 
 def load_realtime_batch_to_bq(**kwargs):
     gcs_hook = GCSHook(gcp_conn_id=GCP_CONN_ID)
-    objects = gcs_hook.list(BUCKET_NAME, prefix='realtime/vehicle')
+    objects = gcs_hook.list(BUCKET_NAME, prefix="realtime/vehicle")
 
     if len(objects):
         load_csv = GCSToBigQueryOperator(
-            task_id='gcs_realtime_to_bq',
+            task_id="gcs_realtime_to_bq",
             bucket=BUCKET_NAME,
             source_objects=objects,
             destination_project_dataset_table=f"{RAW_DATASET_NAME}.{STAGE_VEHICLE_TABLE_NAME}",
             autodetect=None,
             skip_leading_rows=1,
-            write_disposition='WRITE_TRUNCATE',
+            write_disposition="WRITE_TRUNCATE",
             gcp_conn_id=GCP_CONN_ID,
         )
         load_csv.execute(context=kwargs)
@@ -33,78 +46,85 @@ def load_realtime_batch_to_bq(**kwargs):
 
 
 default_args = {
-    'owner': 'airflow',
-    'depends_on_past': False,
-    'email_on_failure': False,
-    'email_on_retry': False,
-    'retries': 0,
+    "owner": "airflow",
+    "depends_on_past": False,
+    "email_on_failure": False,
+    "email_on_retry": False,
+    "retries": 0,
 }
 
 with DAG(
-    'load_realtime_miway_data_to_bq',
+    "load_realtime_miway_data_to_bq",
     default_args=default_args,
-    description='Loads realtime vehicle location data from GCS to BigQuery',
+    description="Loads realtime vehicle location data from GCS to BigQuery",
     schedule_interval=timedelta(minutes=10),
     start_date=datetime(2024, 1, 1),
     catchup=False,
-    tags=['miway'],
+    tags=["miway"],
     max_active_runs=1,
     params={
-        'dataset_id': RAW_DATASET_NAME,
-        'project_id': PROJECT_ID,
-        'stage_vehicle_table_name': STAGE_VEHICLE_TABLE_NAME,
-        'vehicle_table_name': VEHICLE_TABLE_NAME,
-    }
+        "dataset_id": RAW_DATASET_NAME,
+        "project_id": PROJECT_ID,
+        "stage_vehicle_table_name": STAGE_VEHICLE_TABLE_NAME,
+        "vehicle_table_name": VEHICLE_TABLE_NAME,
+    },
 ) as dag:
     check_if_dataset_exists = BigQueryGetDatasetOperator(
-        task_id='check_if_raw_miway_dataset_exists',
+        task_id="check_if_raw_miway_dataset_exists",
         gcp_conn_id=GCP_CONN_ID,
         dataset_id=RAW_DATASET_NAME,
     )
 
     check_if_tmp_vehicle_table_has_no_data = BigQueryCheckOperator(
-        task_id='check_if_tmp_vehicle_table_has_no_data',
+        task_id="check_if_tmp_vehicle_table_has_no_data",
         gcp_conn_id=GCP_CONN_ID,
-        sql=f'SELECT NOT EXISTS (SELECT 1 FROM {RAW_DATASET_NAME}.{STAGE_VEHICLE_TABLE_NAME})',
+        sql=f"SELECT NOT EXISTS (SELECT 1 FROM {RAW_DATASET_NAME}.{STAGE_VEHICLE_TABLE_NAME})",
         use_legacy_sql=False,
     )
 
     check_if_vehicle_table_exists = BigQueryTableExistenceSensor(
-        task_id='check_if_vehicle_table_exists',
+        task_id="check_if_vehicle_table_exists",
         project_id=PROJECT_ID,
         gcp_conn_id=GCP_CONN_ID,
         dataset_id=RAW_DATASET_NAME,
         table_id=VEHICLE_TABLE_NAME,
-        poke_interval=1,  
+        poke_interval=1,
         timeout=1,
-        mode='poke',
+        mode="poke",
     )
 
     load_batch_to_tmp_raw = PythonOperator(
-        task_id='load_realtime_batch_to_bq',
+        task_id="load_realtime_batch_to_bq",
         python_callable=load_realtime_batch_to_bq,
     )
 
     append_tmp_to_raw = BigQueryInsertJobOperator(
-        task_id='append_tmp_to_raw',
+        task_id="append_tmp_to_raw",
         gcp_conn_id=GCP_CONN_ID,
         configuration={
-            'query': {
-                'query': '{% include "sql/merge_stage_raw_vehicle_position.sql" %}',
-                'useLegacySql': False,
+            "query": {
+                "query": '{% include "sql/merge_stage_raw_vehicle_position.sql" %}',
+                "useLegacySql": False,
             }
-        }
+        },
     )
 
     clean_tmp_table = BigQueryInsertJobOperator(
-        task_id='clean_tmp_table',
+        task_id="clean_tmp_table",
         gcp_conn_id=GCP_CONN_ID,
-        configuration= {
-            'query': { 
-                'query': f'TRUNCATE TABLE `{RAW_DATASET_NAME}.{STAGE_VEHICLE_TABLE_NAME}`',
-                'useLegacySql': False,
+        configuration={
+            "query": {
+                "query": f"TRUNCATE TABLE `{RAW_DATASET_NAME}.{STAGE_VEHICLE_TABLE_NAME}`",
+                "useLegacySql": False,
             }
-        }
+        },
     )
 
-    check_if_dataset_exists >> check_if_tmp_vehicle_table_has_no_data >> check_if_vehicle_table_exists >> load_batch_to_tmp_raw >> append_tmp_to_raw >> clean_tmp_table
+    (
+        check_if_dataset_exists
+        >> check_if_tmp_vehicle_table_has_no_data
+        >> check_if_vehicle_table_exists
+        >> load_batch_to_tmp_raw
+        >> append_tmp_to_raw
+        >> clean_tmp_table
+    )
