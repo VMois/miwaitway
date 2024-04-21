@@ -57,7 +57,7 @@ with DAG(
     "load_realtime_miway_data_to_bq",
     default_args=default_args,
     description="Loads realtime vehicle location data from GCS to BigQuery",
-    schedule_interval=timedelta(minutes=10),
+    schedule_interval=timedelta(minutes=90),
     start_date=datetime(2024, 1, 1),
     catchup=False,
     tags=["miway"],
