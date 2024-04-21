@@ -1,3 +1,9 @@
+/*
+  The final raw vehicle location table is partitioned by day from timestamp.
+  It requires a small transformation from staging to final table.
+  Therefore, we have two CREATE TABLE statements here.
+*/
+
 CREATE TABLE raw_miway_data.vehicle_position
 (
   id STRING OPTIONS (
@@ -33,7 +39,7 @@ CREATE TABLE raw_miway_data.vehicle_position
   speed FLOAT64 OPTIONS (
     description="Instantaneous speed of the vehicle in meters per second"
   ),
-  timestamp INT64 OPTIONS (
+  timestamp TIMESTAMP OPTIONS (
     description="Timestamp of the vehicle location update in Unix epoch time (seconds since January 1, 1970)"
   ),
   occupancy_status INT OPTIONS (
@@ -43,12 +49,13 @@ CREATE TABLE raw_miway_data.vehicle_position
     description="Occupancy percentage of the vehicle, as defined in the GTFS Realtime specification"
   )
 )
-PARTITION BY _PARTITIONDATE
+PARTITION BY DATE(timestamp)
 OPTIONS(
-  description="A table that contains vehicle positions."
+  description="A table that contains vehicle positions, partitioned by the date extracted from the timestamp.",
+  partition_expiration_days=30
 );
 
-/* Almost the same as the raw table, but without partitioning as data only stored for a short time*/
+
 CREATE TABLE raw_miway_data.stage_vehicle_position
 (
   id STRING OPTIONS (
@@ -95,5 +102,6 @@ CREATE TABLE raw_miway_data.stage_vehicle_position
   )
 )
 OPTIONS(
-  description="A stage table that contains vehicle positions to be transferred to the main table."
+  description="A temporary table that contains vehicle positions.",
 );
+
