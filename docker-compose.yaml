@@ -36,6 +36,23 @@ x-airflow-common:
       condition: service_healthy
 
 services:
+  vehicle_positions_ingestor:
+    build: ./gtfs_realtime_ingestor
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: ~/creds/service_account.json
+      VEHICLE_LOCATION_URL: https://www.miapp.ca/GTFS_RT/Vehicle/VehiclePositions.pb
+      BUCKET_NAME: miwaitway
+      LOGLEVEL: INFO
+    volumes:
+      - ~/service_account.json:/root/creds/service_account.json
+    restart: on-failure
+    mem_limit: "150m"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+        max-file: "2"
+
   postgres:
     image: postgres:13
     environment:
