@@ -39,7 +39,7 @@ services:
   vehicle_positions_ingestor:
     build: ./gtfs_realtime_ingestor
     environment:
-      GOOGLE_APPLICATION_CREDENTIALS: ~/creds/service_account.json
+      GOOGLE_APPLICATION_CREDENTIALS: /root/creds/service_account.json
       VEHICLE_LOCATION_URL: https://www.miapp.ca/GTFS_RT/Vehicle/VehiclePositions.pb
       BUCKET_NAME: miwaitway
       LOGLEVEL: INFO
