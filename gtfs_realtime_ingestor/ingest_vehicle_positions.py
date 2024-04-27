@@ -118,6 +118,7 @@ def extract_vehicle_location():
 
             df = pl.DataFrame(flattened_data).unique(keep="last")
 
+            flattened_data.clear()
             object_path = f"realtime/vehicle_{current_hash}.csv"
             logger.debug(f"Uploading chunks to GCS as {object_path}.")
             blob = bucket.blob(object_path)
