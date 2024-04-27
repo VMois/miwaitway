@@ -117,7 +117,9 @@ def extract_vehicle_location():
 
         if chunks_left == 0:
             chunks_left = CHUNKS_TO_LOAD
-            df = pl.DataFrame(flattened_data).unique(keep="last")
+            df = pl.DataFrame(flattened_data).unique(
+                subset=["vehicle_id", "timestamp"], keep="last"
+            )
 
             flattened_data.clear()
             object_path = f"realtime/vehicle_{current_hash}.csv"
