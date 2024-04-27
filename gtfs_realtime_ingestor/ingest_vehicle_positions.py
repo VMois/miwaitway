@@ -9,7 +9,6 @@ import hashlib
 import logging
 from collections import defaultdict
 
-from google import api_core
 from google.transit import gtfs_realtime_pb2
 from google.cloud import storage
 import polars as pl
@@ -22,7 +21,10 @@ logging.basicConfig(level=log_level)
 logger = logging.getLogger("vehicle_positions_ingestor")
 
 
-CHUNS_TO_LOAD = 100
+CHUNKS_TO_LOAD = int(os.getenv("CHUNKS_TO_LOAD", "100"))
+logger.debug(f"CHUNKS_TO_LOAD: {CHUNKS_TO_LOAD}")
+if CHUNKS_TO_LOAD is None:
+    raise ValueError("CHUNKS_TO_LOAD must be set")
 
 VEHICLE_LOCATION_URL = os.getenv("VEHICLE_LOCATION_URL")
 logger.debug(f"VEHICLE_LOCATION_URL: {VEHICLE_LOCATION_URL}")
@@ -51,7 +53,7 @@ def extract_vehicle_location():
     )
 
     previous_hash: Optional[str] = None
-    chunks_left = CHUNS_TO_LOAD
+    chunks_left = CHUNKS_TO_LOAD
     flattened_data = []
 
     logger.info(f'Setting up GCS client for "{BUCKET_NAME}" bucket.')
@@ -114,8 +116,7 @@ def extract_vehicle_location():
         logger.debug(f"{chunks_left} chunks left before uploading to GCS.")
 
         if chunks_left == 0:
-            chunks_left = CHUNS_TO_LOAD
-
+            chunks_left = CHUNKS_TO_LOAD
             df = pl.DataFrame(flattened_data).unique(keep="last")
 
             flattened_data.clear()
