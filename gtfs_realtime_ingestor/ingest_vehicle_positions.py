@@ -22,17 +22,17 @@ logger = logging.getLogger("vehicle_positions_ingestor")
 
 
 CHUNKS_TO_LOAD = int(os.getenv("CHUNKS_TO_LOAD", "100"))
-logger.debug(f"CHUNKS_TO_LOAD: {CHUNKS_TO_LOAD}")
+logger.info(f"CHUNKS_TO_LOAD: {CHUNKS_TO_LOAD}")
 if CHUNKS_TO_LOAD is None:
     raise ValueError("CHUNKS_TO_LOAD must be set")
 
 VEHICLE_LOCATION_URL = os.getenv("VEHICLE_LOCATION_URL")
-logger.debug(f"VEHICLE_LOCATION_URL: {VEHICLE_LOCATION_URL}")
+logger.info(f"VEHICLE_LOCATION_URL: {VEHICLE_LOCATION_URL}")
 if VEHICLE_LOCATION_URL is None:
     raise ValueError("VEHICLE_LOCATION_URL must be set")
 
 BUCKET_NAME = os.getenv("BUCKET_NAME")
-logger.debug(f"BUCKET_NAME: {BUCKET_NAME}")
+logger.info(f"BUCKET_NAME: {BUCKET_NAME}")
 if BUCKET_NAME is None:
     raise ValueError("BUCKET_NAME must be set")
 
