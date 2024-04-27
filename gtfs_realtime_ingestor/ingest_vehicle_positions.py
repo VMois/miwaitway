@@ -17,7 +17,7 @@ from typing import Optional
 
 log_level_name = os.getenv("LOGLEVEL", "INFO").upper()
 log_level = getattr(logging, log_level_name, logging.WARNING)
-logging.basicConfig(level=log_level)
+logging.basicConfig(format="%(asctime)s %(levelname)s:%(message)s", level=log_level)
 logger = logging.getLogger("vehicle_positions_ingestor")
 
 
