@@ -23,6 +23,14 @@ from config import (
 )
 
 
+params = {
+    "dataset_id": RAW_DATASET_NAME,
+    "project_id": PROJECT_ID,
+    "stage_vehicle_table_name": STAGE_VEHICLE_TABLE_NAME,
+    "vehicle_table_name": VEHICLE_TABLE_NAME,
+}
+
+
 def load_realtime_batch_to_bq(**kwargs):
     gcs_hook = GCSHook(gcp_conn_id=GCP_CONN_ID)
     objects = gcs_hook.list(BUCKET_NAME, prefix="realtime/vehicle")
@@ -50,6 +58,7 @@ def load_realtime_batch_to_bq(**kwargs):
                     "useLegacySql": False,
                 }
             },
+            params=params,
         )
         append_tmp_to_raw_and_clean_after.execute(context=kwargs)
 
@@ -73,12 +82,7 @@ with DAG(
     catchup=False,
     tags=["miway"],
     max_active_runs=1,
-    params={
-        "dataset_id": RAW_DATASET_NAME,
-        "project_id": PROJECT_ID,
-        "stage_vehicle_table_name": STAGE_VEHICLE_TABLE_NAME,
-        "vehicle_table_name": VEHICLE_TABLE_NAME,
-    },
+    params=params,
 ) as dag:
     check_if_dataset_exists = BigQueryGetDatasetOperator(
         task_id="check_if_raw_miway_dataset_exists",
