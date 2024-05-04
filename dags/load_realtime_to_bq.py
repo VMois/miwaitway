@@ -26,22 +26,33 @@ from config import (
 def load_realtime_batch_to_bq(**kwargs):
     gcs_hook = GCSHook(gcp_conn_id=GCP_CONN_ID)
     objects = gcs_hook.list(BUCKET_NAME, prefix="realtime/vehicle")
+    objects = sorted(objects)
 
-    if len(objects):
-        load_csv = GCSToBigQueryOperator(
-            task_id="gcs_realtime_to_bq",
+    for obj in objects:
+        load_csv_to_bq = GCSToBigQueryOperator(
+            task_id="load_csv_to_bq",
             bucket=BUCKET_NAME,
-            source_objects=objects,
+            source_objects=[obj],
             destination_project_dataset_table=f"{RAW_DATASET_NAME}.{STAGE_VEHICLE_TABLE_NAME}",
             autodetect=None,
             skip_leading_rows=1,
             write_disposition="WRITE_TRUNCATE",
             gcp_conn_id=GCP_CONN_ID,
         )
-        load_csv.execute(context=kwargs)
+        load_csv_to_bq.execute(context=kwargs)
 
-    # Delete ingested data to preserve space
-    for obj in objects:
+        append_tmp_to_raw_and_clean_after = BigQueryInsertJobOperator(
+            task_id="append_tmp_to_raw",
+            gcp_conn_id=GCP_CONN_ID,
+            configuration={
+                "query": {
+                    "query": '{% include "sql/merge_stage_raw_vehicle_position.sql" %}',
+                    "useLegacySql": False,
+                }
+            },
+        )
+        append_tmp_to_raw_and_clean_after.execute(context=kwargs)
+
         gcs_hook.delete(BUCKET_NAME, object_name=obj)
 
 
@@ -57,7 +68,7 @@ with DAG(
     "load_realtime_miway_data_to_bq",
     default_args=default_args,
     description="Loads realtime vehicle location data from GCS to BigQuery",
-    schedule_interval=timedelta(minutes=90),
+    schedule_interval=timedelta(minutes=60),
     start_date=datetime(2024, 1, 1),
     catchup=False,
     tags=["miway"],
@@ -98,33 +109,10 @@ with DAG(
         python_callable=load_realtime_batch_to_bq,
     )
 
-    append_tmp_to_raw = BigQueryInsertJobOperator(
-        task_id="append_tmp_to_raw",
-        gcp_conn_id=GCP_CONN_ID,
-        configuration={
-            "query": {
-                "query": '{% include "sql/merge_stage_raw_vehicle_position.sql" %}',
-                "useLegacySql": False,
-            }
-        },
-    )
-
-    clean_tmp_table = BigQueryInsertJobOperator(
-        task_id="clean_tmp_table",
-        gcp_conn_id=GCP_CONN_ID,
-        configuration={
-            "query": {
-                "query": f"TRUNCATE TABLE `{RAW_DATASET_NAME}.{STAGE_VEHICLE_TABLE_NAME}`",
-                "useLegacySql": False,
-            }
-        },
-    )
-
     (
         check_if_dataset_exists
         >> check_if_tmp_vehicle_table_has_no_data
         >> check_if_vehicle_table_exists
         >> load_batch_to_tmp_raw
-        >> append_tmp_to_raw
         >> clean_tmp_table
     )
