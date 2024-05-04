@@ -114,5 +114,4 @@ with DAG(
         >> check_if_tmp_vehicle_table_has_no_data
         >> check_if_vehicle_table_exists
         >> load_batch_to_tmp_raw
-        >> clean_tmp_table
     )
