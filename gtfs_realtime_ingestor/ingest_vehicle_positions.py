@@ -135,7 +135,7 @@ def extract_vehicle_location():
                 )
             else:
                 object_path = f"realtime/vehicle_{current_hash}.csv"
-                logger.debug(f"Uploading chunks to GCS as {object_path}.")
+                logger.info(f"Uploading chunks to GCS as {object_path}.")
                 blob = bucket.blob(object_path)
                 blob.upload_from_string(df.write_csv(include_header=True))
 
