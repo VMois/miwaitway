@@ -69,7 +69,7 @@ def load_realtime_batch_to_bq(**kwargs):
             }
         }
 
-        bigquery_hook.insert_job(configuration, project_id=PROJECT_ID)
+        bigquery_hook.insert_job(configuration=configuration, project_id=PROJECT_ID)
 
         gcs_hook.delete(BUCKET_NAME, object_name=obj)
 
