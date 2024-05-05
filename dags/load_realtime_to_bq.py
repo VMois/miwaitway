@@ -5,13 +5,14 @@ from airflow.operators.python import PythonOperator
 from airflow.providers.google.cloud.operators.bigquery import (
     BigQueryGetDatasetOperator,
     BigQueryCheckOperator,
-    BigQueryInsertJobOperator,
 )
 from airflow.providers.google.cloud.sensors.bigquery import BigQueryTableExistenceSensor
 from airflow.providers.google.cloud.transfers.gcs_to_bigquery import (
     GCSToBigQueryOperator,
 )
 from airflow.providers.google.cloud.hooks.gcs import GCSHook
+from airflow.providers.google.cloud.hooks.bigquery import BigQueryHook
+from jinja2 import Environment, FileSystemLoader
 
 from config import (
     BUCKET_NAME,
@@ -31,10 +32,18 @@ params = {
 }
 
 
+environment = Environment(loader=FileSystemLoader("sql"))
+merge_template = environment.get_template("merge_stage_raw_vehicle_position.sql")
+
+merge_query = merge_template.render({"params": params})
+
+
 def load_realtime_batch_to_bq(**kwargs):
     gcs_hook = GCSHook(gcp_conn_id=GCP_CONN_ID)
     objects = gcs_hook.list(BUCKET_NAME, prefix="realtime/vehicle")
+    print(objects)
     objects = sorted(objects)
+    print(objects)
 
     for obj in objects:
         load_csv_to_bq = GCSToBigQueryOperator(
@@ -49,18 +58,18 @@ def load_realtime_batch_to_bq(**kwargs):
         )
         load_csv_to_bq.execute(context=kwargs)
 
-        append_tmp_to_raw_and_clean_after = BigQueryInsertJobOperator(
-            task_id="append_tmp_to_raw",
-            gcp_conn_id=GCP_CONN_ID,
-            configuration={
-                "query": {
-                    "query": '{% include "sql/merge_stage_raw_vehicle_position.sql" %}',
-                    "useLegacySql": False,
-                }
-            },
-            params=params,
+        bigquery_hook = BigQueryHook(
+            gcp_conn_id=GCP_CONN_ID, useLegacySql=False, priority="BATCH"
         )
-        append_tmp_to_raw_and_clean_after.execute(context=kwargs)
+
+        configuration = {
+            "query": {
+                "query": merge_query,
+                "useLegacySql": False,
+            }
+        }
+
+        bigquery_hook.insert_job(configuration, project_id=PROJECT_ID)
 
         gcs_hook.delete(BUCKET_NAME, object_name=obj)
 
