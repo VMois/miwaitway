@@ -32,7 +32,7 @@ params = {
 }
 
 
-environment = Environment(loader=FileSystemLoader("sql"))
+environment = Environment(loader=FileSystemLoader("dags/sql"))
 merge_template = environment.get_template("merge_stage_raw_vehicle_position.sql")
 
 merge_query = merge_template.render({"params": params})
