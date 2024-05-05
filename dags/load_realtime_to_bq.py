@@ -32,16 +32,18 @@ params = {
 }
 
 
-environment = Environment(loader=FileSystemLoader("dags/sql"))
-merge_template = environment.get_template("merge_stage_raw_vehicle_position.sql")
-
+jinja_environment = Environment(loader=FileSystemLoader("dags/sql"))
+merge_template = jinja_environment.get_template("merge_stage_raw_vehicle_position.sql")
 merge_query = merge_template.render({"params": params})
 
 
 def load_realtime_batch_to_bq(**kwargs):
     gcs_hook = GCSHook(gcp_conn_id=GCP_CONN_ID)
+    # TODO: ideally we want objects to be sorted by creation date
+    #       this is because we overwrite over older data in case of MATCH in MERGE
+    #       and we want to have the latest data that overwrites, no the random
     objects = gcs_hook.list(BUCKET_NAME, prefix="realtime/vehicle")
-    print(merge_query)
+
     for obj in objects:
         load_csv_to_bq = GCSToBigQueryOperator(
             task_id="load_csv_to_bq",
@@ -58,14 +60,12 @@ def load_realtime_batch_to_bq(**kwargs):
         bigquery_hook = BigQueryHook(
             gcp_conn_id=GCP_CONN_ID, useLegacySql=False, priority="BATCH"
         )
-
         configuration = {
             "query": {
                 "query": merge_query,
                 "useLegacySql": False,
             }
         }
-
         bigquery_hook.insert_job(configuration=configuration, project_id=PROJECT_ID)
 
         gcs_hook.delete(BUCKET_NAME, object_name=obj)
