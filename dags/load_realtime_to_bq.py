@@ -5,13 +5,14 @@ from airflow.operators.python import PythonOperator
 from airflow.providers.google.cloud.operators.bigquery import (
     BigQueryGetDatasetOperator,
     BigQueryCheckOperator,
-    BigQueryInsertJobOperator,
 )
 from airflow.providers.google.cloud.sensors.bigquery import BigQueryTableExistenceSensor
 from airflow.providers.google.cloud.transfers.gcs_to_bigquery import (
     GCSToBigQueryOperator,
 )
 from airflow.providers.google.cloud.hooks.gcs import GCSHook
+from airflow.providers.google.cloud.hooks.bigquery import BigQueryHook
+from jinja2 import Environment, FileSystemLoader
 
 from config import (
     BUCKET_NAME,
@@ -23,25 +24,50 @@ from config import (
 )
 
 
+params = {
+    "dataset_id": RAW_DATASET_NAME,
+    "project_id": PROJECT_ID,
+    "stage_vehicle_table_name": STAGE_VEHICLE_TABLE_NAME,
+    "vehicle_table_name": VEHICLE_TABLE_NAME,
+}
+
+
+jinja_environment = Environment(loader=FileSystemLoader("dags/sql"))
+merge_template = jinja_environment.get_template("merge_stage_raw_vehicle_position.sql")
+merge_query = merge_template.render({"params": params})
+
+
 def load_realtime_batch_to_bq(**kwargs):
     gcs_hook = GCSHook(gcp_conn_id=GCP_CONN_ID)
+    # TODO: ideally we want objects to be sorted by creation date
+    #       this is because we overwrite over older data in case of MATCH in MERGE
+    #       and we want to have the latest data that overwrites, no the random
     objects = gcs_hook.list(BUCKET_NAME, prefix="realtime/vehicle")
 
-    if len(objects):
-        load_csv = GCSToBigQueryOperator(
-            task_id="gcs_realtime_to_bq",
+    for obj in objects:
+        load_csv_to_bq = GCSToBigQueryOperator(
+            task_id="load_csv_to_bq",
             bucket=BUCKET_NAME,
-            source_objects=objects,
+            source_objects=[obj],
             destination_project_dataset_table=f"{RAW_DATASET_NAME}.{STAGE_VEHICLE_TABLE_NAME}",
             autodetect=None,
             skip_leading_rows=1,
             write_disposition="WRITE_TRUNCATE",
             gcp_conn_id=GCP_CONN_ID,
         )
-        load_csv.execute(context=kwargs)
+        load_csv_to_bq.execute(context=kwargs)
 
-    # Delete ingested data to preserve space
-    for obj in objects:
+        bigquery_hook = BigQueryHook(
+            gcp_conn_id=GCP_CONN_ID, useLegacySql=False, priority="BATCH"
+        )
+        configuration = {
+            "query": {
+                "query": merge_query,
+                "useLegacySql": False,
+            }
+        }
+        bigquery_hook.insert_job(configuration=configuration, project_id=PROJECT_ID)
+
         gcs_hook.delete(BUCKET_NAME, object_name=obj)
 
 
@@ -57,17 +83,12 @@ with DAG(
     "load_realtime_miway_data_to_bq",
     default_args=default_args,
     description="Loads realtime vehicle location data from GCS to BigQuery",
-    schedule_interval=timedelta(minutes=90),
+    schedule_interval=timedelta(minutes=60),
     start_date=datetime(2024, 1, 1),
     catchup=False,
     tags=["miway"],
     max_active_runs=1,
-    params={
-        "dataset_id": RAW_DATASET_NAME,
-        "project_id": PROJECT_ID,
-        "stage_vehicle_table_name": STAGE_VEHICLE_TABLE_NAME,
-        "vehicle_table_name": VEHICLE_TABLE_NAME,
-    },
+    params=params,
 ) as dag:
     check_if_dataset_exists = BigQueryGetDatasetOperator(
         task_id="check_if_raw_miway_dataset_exists",
@@ -98,33 +119,9 @@ with DAG(
         python_callable=load_realtime_batch_to_bq,
     )
 
-    append_tmp_to_raw = BigQueryInsertJobOperator(
-        task_id="append_tmp_to_raw",
-        gcp_conn_id=GCP_CONN_ID,
-        configuration={
-            "query": {
-                "query": '{% include "sql/merge_stage_raw_vehicle_position.sql" %}',
-                "useLegacySql": False,
-            }
-        },
-    )
-
-    clean_tmp_table = BigQueryInsertJobOperator(
-        task_id="clean_tmp_table",
-        gcp_conn_id=GCP_CONN_ID,
-        configuration={
-            "query": {
-                "query": f"TRUNCATE TABLE `{RAW_DATASET_NAME}.{STAGE_VEHICLE_TABLE_NAME}`",
-                "useLegacySql": False,
-            }
-        },
-    )
-
     (
         check_if_dataset_exists
         >> check_if_tmp_vehicle_table_has_no_data
         >> check_if_vehicle_table_exists
         >> load_batch_to_tmp_raw
-        >> append_tmp_to_raw
-        >> clean_tmp_table
     )

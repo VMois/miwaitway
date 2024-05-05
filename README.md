@@ -17,14 +17,3 @@ gcloud compute ssh airflow-and-web \
     -- -NL 8080:localhost:8080
 ```
 
-
-## Development
-
-### Vehicle positions ingestor
-
-Example command that can be used for local testing of ingestor:
-
-```bash
-docker run -v /Users/vmois/Projects/miwaitway/service_account.json:/root/creds/service_account.json -e VEHICLE_LOCATION_URL="https://www.miapp.ca/GTFS_RT/Vehicle/VehiclePositions.pb" -e BUCKET_NAME=miwaitway -e LOGLEVEL=debug -e GOOGLE_APPLICATION_CREDENTIALS=/root/creds/service_account.json miwaitway_vehicle_positions_ingestor
-```
-

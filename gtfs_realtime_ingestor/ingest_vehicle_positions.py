@@ -36,6 +36,12 @@ logger.info(f"BUCKET_NAME: {BUCKET_NAME}")
 if BUCKET_NAME is None:
     raise ValueError("BUCKET_NAME must be set")
 
+LOCAL_STORAGE_PATH = os.getenv("LOCAL_STORAGE_PATH")
+if LOCAL_STORAGE_PATH:
+    logger.info(
+        f"Collected files will be saved to a local path {LOCAL_STORAGE_PATH} instead of GCS bucket"
+    )
+
 
 def get_field_value(obj, field_name: str, default=None):
     try:
@@ -122,10 +128,16 @@ def extract_vehicle_location():
             )
 
             flattened_data.clear()
-            object_path = f"realtime/vehicle_{current_hash}.csv"
-            logger.debug(f"Uploading chunks to GCS as {object_path}.")
-            blob = bucket.blob(object_path)
-            blob.upload_from_string(df.write_csv(include_header=True))
+
+            if LOCAL_STORAGE_PATH:
+                df.write_csv(
+                    file=f"{LOCAL_STORAGE_PATH}/{current_hash}.csv", include_header=True
+                )
+            else:
+                object_path = f"realtime/vehicle_{current_hash}.csv"
+                logger.info(f"Uploading chunks to GCS as {object_path}.")
+                blob = bucket.blob(object_path)
+                blob.upload_from_string(df.write_csv(include_header=True))
 
 
 if __name__ == "__main__":
