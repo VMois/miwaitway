@@ -41,10 +41,7 @@ merge_query = merge_template.render({"params": params})
 def load_realtime_batch_to_bq(**kwargs):
     gcs_hook = GCSHook(gcp_conn_id=GCP_CONN_ID)
     objects = gcs_hook.list(BUCKET_NAME, prefix="realtime/vehicle")
-    print(objects)
-    objects = sorted(objects)
-    print(objects)
-
+    print(merge_query)
     for obj in objects:
         load_csv_to_bq = GCSToBigQueryOperator(
             task_id="load_csv_to_bq",

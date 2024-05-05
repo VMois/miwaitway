@@ -1,4 +1,4 @@
-BEGIN TRANSACTION
+--BEGIN TRANSACTION
 
 MERGE `{{ params.project_id }}.{{ params.dataset_id }}.{{ params.vehicle_table_name }}` AS target
 USING `{{ params.project_id }}.{{ params.dataset_id }}.{{ params.stage_vehicle_table_name }}` AS source
@@ -55,6 +55,6 @@ WHEN NOT MATCHED THEN
     );
 
 
-TRUNCATE TABLE `{{ params.project_id }}.{{ params.dataset_id }}.{{ params.stage_vehicle_table_name }}`
+--TRUNCATE TABLE `{{ params.project_id }}.{{ params.dataset_id }}.{{ params.stage_vehicle_table_name }}`
 
-COMMIT TRANSACTION
+--COMMIT TRANSACTION
