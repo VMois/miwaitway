@@ -14,6 +14,7 @@ USING (
 ) AS source
     ON target.vehicle_id = CAST(source.vehicle_id AS INT64)
         AND target.timestamp = source.timestamp
+        AND target.trip_id = CAST(source.trip_id AS INT64)
 WHEN MATCHED THEN
     UPDATE SET
         target.id = source.id

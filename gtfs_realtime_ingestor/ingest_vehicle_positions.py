@@ -124,7 +124,7 @@ def extract_vehicle_location():
         if chunks_left == 0:
             chunks_left = CHUNKS_TO_LOAD
             df = pl.DataFrame(flattened_data).unique(
-                subset=["vehicle_id", "timestamp"], keep="last"
+                subset=["vehicle_id", "timestamp", "trip_id"], keep="last"
             )
 
             flattened_data.clear()
