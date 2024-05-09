@@ -1,6 +1,9 @@
-DECLARE var_today STRING "{{ ds }}";
-DECLARE var_yesterday STRING "{{ macros.ds_add(ds, -1) }}";
-DECLARE var_today_est_limit TIMESTAMP("{{ ds }} 04:00:00 UTC");
+DECLARE var_today STRING;
+SET var_today = "{{ ds }}";
+DECLARE var_yesterday STRING;
+SET var_yesterday = "{{ macros.ds_add(ds, -1) }}";
+DECLARE var_today_est_limit TIMESTAMP;
+SET var_today_est_limit = TIMESTAMP("{{ ds }} 04:00:00 UTC");
 
 MERGE `{{ params.project_id }}.{{ params.prod_dataset_id }}.{{ params.vehicle_table_name }}` AS target
 USING (
