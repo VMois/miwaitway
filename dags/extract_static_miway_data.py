@@ -87,7 +87,7 @@ with DAG(
     schedule_interval=timedelta(days=1),
     start_date=datetime(2024, 1, 1),
     catchup=False,
-    tags=["miway"],
+    tags=["miway", "raw"],
 ) as dag:
     check_if_dataset_exists = BigQueryGetDatasetOperator(
         task_id="check_if_raw_miway_dataset_exists",

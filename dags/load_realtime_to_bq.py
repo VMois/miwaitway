@@ -86,7 +86,7 @@ with DAG(
     schedule_interval=timedelta(minutes=70),
     start_date=datetime(2024, 1, 1),
     catchup=False,
-    tags=["miway"],
+    tags=["miway", "raw"],
     max_active_runs=1,
     params=params,
 ) as dag:
