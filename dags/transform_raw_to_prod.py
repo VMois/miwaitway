@@ -68,3 +68,5 @@ with DAG(
             }
         },
     )
+
+    transform_vehicle_positions >> transform_stops
