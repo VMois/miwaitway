@@ -9,7 +9,7 @@ x-airflow-common:
   environment:
     &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
-    AIRFLOW__CORE__PARALLELISM: 2
+    AIRFLOW__CORE__PARALLELISM: 1 
     AIRFLOW__WEBSERVER__WORKERS: 1
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/${AIRFLOW_DB_NAME}
     AIRFLOW__CORE__FERNET_KEY: ''
