@@ -47,7 +47,7 @@ with DAG(
         gcp_conn_id=GCP_CONN_ID,
         configuration={
             "query": {
-                "query": "{% include `sql/transform_raw_vehicle_positions_to_prod.sql` %}",
+                "query": "{% include 'sql/transform_raw_vehicle_positions_to_prod.sql' %}",
                 "useLegacySql": False,
                 "priority": "BATCH",
             }
@@ -62,7 +62,7 @@ with DAG(
         gcp_conn_id=GCP_CONN_ID,
         configuration={
             "query": {
-                "query": "{% include `sql/transform_raw_stops_to_prod.sql` %}",
+                "query": "{% include 'sql/transform_raw_stops_to_prod.sql' %}",
                 "useLegacySql": False,
                 "priority": "BATCH",
             }
