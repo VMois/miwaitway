@@ -42,7 +42,7 @@ with DAG(
     max_active_runs=1,
     params=params,
 ) as dag:
-    BigQueryInsertJobOperator(
+    transform_vehicle_positions = BigQueryInsertJobOperator(
         task_id="transform_vehicle_positions",
         gcp_conn_id=GCP_CONN_ID,
         configuration={
@@ -57,7 +57,7 @@ with DAG(
     # task needs to run after raw stops were ingested
     # raw stops are ingested once a day at 00:00 UTC so we should be fine
     # TODO: ideally we would want to have a sensor here that waits for fresh table or static data DAG
-    BigQueryInsertJobOperator(
+    transform_stops = BigQueryInsertJobOperator(
         task_id="transform_stops",
         gcp_conn_id=GCP_CONN_ID,
         configuration={
