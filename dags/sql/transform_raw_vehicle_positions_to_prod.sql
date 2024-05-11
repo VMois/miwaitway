@@ -1,16 +1,12 @@
-DECLARE var_today STRING;
-DECLARE var_yesterday STRING;
 DECLARE var_today_est_limit TIMESTAMP;
-SET var_today = "{{ ds }}";
-SET var_yesterday = "{{ macros.ds_add(ds, -1) }}";
+DECLARE var_yesterday_est_limit TIMESTAMP;
 SET var_today_est_limit = TIMESTAMP("{{ ds }} 04:00:00 UTC");
+SET var_yesterday_est_limit = TIMESTAMP("{{ macros.ds_add(ds, -1) }} 04:00:00 UTC");
 
 MERGE `{{ params.project_id }}.{{ params.prod_dataset_id }}.{{ params.vehicle_table_name }}` AS target
 USING (
-    SELECT * FROM `{{ params.project_id }}.{{ params.raw_dataset_id }}.{{ params.vehicle_table_name }}` 
-    WHERE (TIMESTAMP_TRUNC(timestamp, DAY) = TIMESTAMP(var_today) 
-          OR TIMESTAMP_TRUNC(timestamp, DAY) = TIMESTAMP(var_yesterday))
-          AND TIMESTAMP_TRUNC(timestamp, HOUR) <= var_today_est_limit
+    SELECT * FROM `{{ params.project_id }}.{{ params.raw_dataset_id }}.{{ params.vehicle_table_name }}`
+    WHERE timestamp BETWEEN var_yesterday_est_limit AND var_today_est_limit
 ) AS source
     ON target.vehicle_id = CAST(source.vehicle_id AS INT64)
         AND target.timestamp = source.timestamp
