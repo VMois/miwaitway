@@ -21,7 +21,7 @@ CREATE TABLE prod_miway_data.vehicle_position
   vehicle_label STRING OPTIONS (
     description="Label assigned to the vehicle, such as a number or name"
   ),
-  location_point GEOGRAPHY OPTIONS (
+  location_point GEOGRAPHY NOT NULL OPTIONS (
     description="Original lat and long coordinates converted to GEOGRAPHY"
   ),
   bearing FLOAT64 OPTIONS (
