@@ -100,7 +100,7 @@ services:
       retries: 5
       start_period: 30s
     restart: always
-    mem_limit: "700m"
+    mem_limit: "750m"
     cpus: 1
     depends_on:
       <<: *airflow-common-depends-on
