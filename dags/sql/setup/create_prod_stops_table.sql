@@ -14,7 +14,7 @@ CREATE TABLE `miwaitway.prod_miway_data.stops` (
     stop_desc STRING OPTIONS(
         description = "A description of the stop."
     ),
-    location_point GEOGRAPHY OPTIONS (
+    location_point GEOGRAPHY NOT NULL OPTIONS (
         description="Original lat and long coordinates converted to GEOGRAPHY"
     ),
     zone_id STRING OPTIONS(
