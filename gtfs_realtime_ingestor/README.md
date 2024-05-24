@@ -3,6 +3,10 @@
 Useful Docker command for local testing of vehicle ingestor:
 
 ```bash
-docker run -v /Users/vmois/Projects/miwaitway/service_account.json:/root/creds/service_account.json -v /Users/vmois/Projects/miwaitway/tmp:/root/tmp -e CHUNKS_TO_LOAD=3 -e LOCAL_STORAGE_PATH="/root/tmp" -e VEHICLE_LOCATION_URL="https://www.miapp.ca/GTFS_RT/Vehicle/VehiclePositions.pb" -e BUCKET_NAME=miwaitway -e LOGLEVEL=debug -e GOOGLE_APPLICATION_CREDENTIALS=/root/creds/service_account.json miwaitway_vehicle_positions_ingestor
+docker build . -t miwaitway_vehicle_positions_ingestor
+```
+
+```bash
+docker run -v /Users/vmois/Projects/miwaitway/crash_storage:/root/crash_storage -v /Users/vmois/Projects/miwaitway/service_account.json:/root/creds/service_account.json -v /Users/vmois/Projects/miwaitway/tmp:/root/tmp -e CHUNKS_TO_LOAD=3 -e LOCAL_STORAGE_PATH="/root/tmp" -e VEHICLE_LOCATION_URL="https://www.miapp.ca/GTFS_RT/Vehicle/VehiclePositions.pb" -e BUCKET_NAME=miwaitway -e LOGLEVEL=debug -e GOOGLE_APPLICATION_CREDENTIALS=/root/creds/service_account.json -e INGESTOR_STORAGE="/root/crash_storage" miwaitway_vehicle_positions_ingestor
 ```
 
