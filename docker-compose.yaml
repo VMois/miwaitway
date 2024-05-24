@@ -45,6 +45,7 @@ services:
       LOGLEVEL: INFO
       CHUNKS_TO_LOAD: 50
       INGESTOR_STORAGE: /root/ingestor_storage
+      SENTRY_DSN: ${SENTRY_DSN}
     volumes:
       - ~/service_account.json:/root/creds/service_account.json
       - ${VEHICLE_POSITION_INGESTOR_STORAGE_PATH}:/root/ingestor_storage/
