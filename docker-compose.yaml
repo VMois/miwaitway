@@ -43,7 +43,7 @@ services:
       VEHICLE_LOCATION_URL: https://www.miapp.ca/GTFS_RT/Vehicle/VehiclePositions.pb
       BUCKET_NAME: miwaitway
       LOGLEVEL: INFO
-      CHUNKS_TO_LOAD: 100
+      CHUNKS_TO_LOAD: 50
       INGESTOR_STORAGE: /root/ingestor_storage
     volumes:
       - ~/service_account.json:/root/creds/service_account.json
