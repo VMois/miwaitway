@@ -44,8 +44,10 @@ services:
       BUCKET_NAME: miwaitway
       LOGLEVEL: INFO
       CHUNKS_TO_LOAD: 100
+      INGESTOR_STORAGE: /root/ingestor_storage
     volumes:
       - ~/service_account.json:/root/creds/service_account.json
+      - ${VEHICLE_POSITION_INGESTOR_STORAGE_PATH}:/root/ingestor_storage/
     restart: on-failure
     mem_limit: "150m"
     logging:
