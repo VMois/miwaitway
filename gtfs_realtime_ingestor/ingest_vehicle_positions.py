@@ -9,13 +9,15 @@ import hashlib
 import logging
 from collections import defaultdict
 from pathlib import Path
-from typing import Callable, List, Tuple
+from typing import Callable, List, Tuple, Optional
 
+import polars as pl
+import sentry_sdk
 from google.transit import gtfs_realtime_pb2
 from google.cloud import storage
-import polars as pl
-from typing import Optional
 
+
+sentry_sdk.init()
 
 log_level_name = os.getenv("LOGLEVEL", "INFO").upper()
 log_level = getattr(logging, log_level_name, logging.WARNING)
