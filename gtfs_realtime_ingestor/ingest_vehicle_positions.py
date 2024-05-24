@@ -94,29 +94,35 @@ def extract_vehicle_location():
     gcs_client = storage.Client()
     bucket = gcs_client.bucket(BUCKET_NAME)
 
+    infer_schema_length = 2000
+
     logger.info("Starting to load vehicle location data (infinite loop).")
     while True:
         if chunks_left == 0:
-            chunks_left = CHUNKS_TO_LOAD
-            df = pl.DataFrame(flattened_data).unique(
-                subset=["vehicle_id", "timestamp", "trip_id"], keep="last"
-            )
-
-            flattened_data.clear()
-
-            if LOCAL_STORAGE_PATH:
-                logger.debug("Save chunks to a local path.")
-                df.write_csv(
-                    file=f"{LOCAL_STORAGE_PATH}/{previous_hash}.csv",
-                    include_header=True,
-                )
+            try:
+                batch_df = pl.DataFrame(
+                    flattened_data, infer_schema_length=infer_schema_length
+                ).unique(subset=["vehicle_id", "timestamp", "trip_id"], keep="last")
+            except pl.exceptions.ComputeError as e:
+                sentry_sdk.capture_exception(e)
+                logger.error(f"Potentially infer schema error. Error: {e}")
             else:
-                object_path = f"realtime/vehicle_{previous_hash}.csv"
-                logger.info(f"Uploading chunks to GCS as {object_path}.")
-                blob = bucket.blob(object_path)
-                blob.upload_from_string(df.write_csv(include_header=True))
+                if LOCAL_STORAGE_PATH:
+                    logger.debug("Save chunks to a local path.")
+                    batch_df.write_csv(
+                        file=f"{LOCAL_STORAGE_PATH}/{previous_hash}.csv",
+                        include_header=True,
+                    )
+                else:
+                    object_path = f"realtime/vehicle_{previous_hash}.csv"
+                    logger.info(f"Uploading chunks to GCS as {object_path}.")
+                    blob = bucket.blob(object_path)
+                    blob.upload_from_string(batch_df.write_csv(include_header=True))
 
-            save_to_waf(flattened_data, chunks_left, previous_hash)
+            finally:
+                chunks_left = CHUNKS_TO_LOAD
+                flattened_data.clear()
+                save_to_waf(flattened_data, chunks_left, previous_hash)
 
         try:
             response = requests.get(VEHICLE_LOCATION_URL)
