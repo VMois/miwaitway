@@ -103,15 +103,13 @@ def extract_vehicle_location():
                 batch_df = pl.DataFrame(
                     flattened_data, infer_schema_length=infer_schema_length
                 ).unique(subset=["vehicle_id", "timestamp", "trip_id"], keep="last")
-            except pl.exceptions.ColumnNotFoundError as e:
-                sentry_sdk.capture_exception(e)
+            except pl.exceptions.ColumnNotFoundError:
                 first_element = flattened_data[0] if len(flattened_data) else None
-                logger.error(
-                    f"Required column not found in the batch data. Batch's size: {len(flattened_data)}. Batch's first element: {first_element}. Error details: {e}"
+                logger.exception(
+                    f"Required column not found in the batch data. Batch's size: {len(flattened_data)}. Batch's first element: {first_element}."
                 )
-            except pl.exceptions.ComputeError as e:
-                sentry_sdk.capture_exception(e)
-                logger.error(f"Potentially infer schema error. Error: {e}")
+            except pl.exceptions.ComputeError:
+                logger.exception("Potentially infer schema error.")
             else:
                 if LOCAL_STORAGE_PATH:
                     logger.debug("Save chunks to a local path.")
