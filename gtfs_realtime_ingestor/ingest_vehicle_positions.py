@@ -24,6 +24,8 @@ log_level = getattr(logging, log_level_name, logging.WARNING)
 logging.basicConfig(format="%(asctime)s %(levelname)s:%(message)s", level=log_level)
 logger = logging.getLogger("vehicle_positions_ingestor")
 
+INFER_SCHEMA_LENGTH = 2000
+
 
 def get_field_value(obj, field_name: str, default=None):
     try:
@@ -65,7 +67,7 @@ def build_waf_functions(
 
     def save_to_waf(items: List, chunks_to_load: int, current_hash: str) -> None:
         # TODO: in case of failure in any of the writes, rollback to previous WAF saved or re-try
-        df = pl.DataFrame(items)
+        df = pl.DataFrame(items, infer_schema_length=INFER_SCHEMA_LENGTH)
         with open(data_path, "w") as f:
             df.write_csv(f, include_header=True)
 
@@ -94,14 +96,12 @@ def extract_vehicle_location():
     gcs_client = storage.Client()
     bucket = gcs_client.bucket(BUCKET_NAME)
 
-    infer_schema_length = 2000
-
     logger.info("Starting to load vehicle location data (infinite loop).")
     while True:
         if chunks_left == 0:
             try:
                 batch_df = pl.DataFrame(
-                    flattened_data, infer_schema_length=infer_schema_length
+                    flattened_data, infer_schema_length=INFER_SCHEMA_LENGTH
                 ).unique(subset=["vehicle_id", "timestamp", "trip_id"], keep="last")
             except pl.exceptions.ColumnNotFoundError:
                 first_element = flattened_data[0] if len(flattened_data) else None
